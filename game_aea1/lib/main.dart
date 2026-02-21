@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
+import 'pantalles/pantalla_inici.dart';
 
 void main() {
-  runApp(const MainApp());
+  runApp(const PokemonApp());
 }
 
-class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+class PokemonApp extends StatelessWidget {
+  const PokemonApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Text('Hello World!'),
-        ),
+    return MaterialApp(
+      title: 'Batalla Pokémon',
+      theme: ThemeData(
+        primarySwatch: Colors.red,
       ),
+      home: const PantallaInici(),
     );
   }
 }
