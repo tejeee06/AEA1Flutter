@@ -11,12 +11,11 @@ class PantallaBatalla extends StatefulWidget {
 }
 
 class _PantallaBatallaState extends State<PantallaBatalla> {
-  // Creem els dos Pokémon segons els requisits (120 PS i 30 PP)
   late Pokemon pokemon1;
   late Pokemon pokemon2;
-  
-  bool tornJugador1 = true; // Control de qui és el torn
+  bool tornJugador1 = true;
   final Random _random = Random();
+  List<String> historial = []; 
 
   @override
   void initState() {
@@ -25,39 +24,131 @@ class _PantallaBatallaState extends State<PantallaBatalla> {
   }
 
   void reiniciarBatalla() {
-    pokemon1 = Pokemon(nom: "Pikachu (Jugador 1)", psMax: 120, ppMax: 30);
-    pokemon2 = Pokemon(nom: "Charmander (Jugador 2)", psMax: 120, ppMax: 30);
+    pokemon1 = Pokemon(
+        nom: "Pikachu", 
+        psMax: 100, 
+        ppMax: 40, 
+        imatgeUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png");
+    pokemon2 = Pokemon(
+        nom: "Charmander", 
+        psMax: 100, 
+        ppMax: 40, 
+        imatgeUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png");
     tornJugador1 = true;
+    historial.clear();
+    historial.add("La batalla comença!");
   }
 
-  void realitzarAtac(int costPP, int danyMin, int danyMax) {
+  void executarAccio({
+    String nomAtac = "", 
+    int costPP = 0, 
+    int danyMin = 0, 
+    int danyMax = 0, 
+    bool esCura = false, 
+    bool esDescans = false
+  }) {
     setState(() {
       Pokemon atacant = tornJugador1 ? pokemon1 : pokemon2;
       Pokemon defensor = tornJugador1 ? pokemon2 : pokemon1;
+      String missatgeLog = "";
 
-      // Càlcul del dany aleatori
-      int dany = danyMin + _random.nextInt((danyMax - danyMin) + 1);
+      if (esDescans) {
+        int ppRecuperats = 15;
+        atacant.pp += ppRecuperats;
+        if (atacant.pp > atacant.ppMax) atacant.pp = atacant.ppMax;
+        atacant.atacsRealitzats++;
+        missatgeLog = "${atacant.nom} descansa i recupera $ppRecuperats PP!";
+      } 
+      else if (esCura) {
+        atacant.consumirPP(costPP);
+        atacant.curar(25);
+        missatgeLog = "${atacant.nom} utilitza Curació i recupera 25 PS!";
+      } 
+      else {
+        atacant.consumirPP(costPP);
+        int sort = _random.nextInt(100);
+        
+        if (sort < 5) {
+          missatgeLog = "${atacant.nom} utilitza $nomAtac però FALLA!";
+        } else {
+          int dany = danyMin + _random.nextInt((danyMax - danyMin) + 1);
+          if (sort >= 5 && sort < 15) {
+            dany *= 2;
+            missatgeLog = "Cop Crític! ${atacant.nom} fa $dany de dany amb $nomAtac!";
+          } else {
+            missatgeLog = "${atacant.nom} utilitza $nomAtac i fa $dany de dany.";
+          }
+          defensor.rebreDany(dany);
+        }
+      }
 
-      atacant.consumirPP(costPP);
-      defensor.rebreDany(dany);
+      historial.insert(0, missatgeLog); 
 
-      // Comprovem si la batalla ha acabat
       if (defensor.ps <= 0) {
-        acabarBatalla(atacant);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => PantallaFinal(
+            guanyador: atacant.nom,
+            atacsTotals: pokemon1.atacsRealitzats + pokemon2.atacsRealitzats,
+          )),
+        );
       } else {
-        tornJugador1 = !tornJugador1; // Passem el torn
+        tornJugador1 = !tornJugador1;
       }
     });
   }
 
-  void acabarBatalla(Pokemon guanyador) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PantallaFinal(
-          guanyador: guanyador.nom,
-          atacsTotals: pokemon1.atacsRealitzats + pokemon2.atacsRealitzats,
-        ),
+  Widget _buildPokemonCard(Pokemon p, bool esTorn) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: esTorn ? Colors.yellow[100] : Colors.grey[200],
+        border: Border.all(color: esTorn ? Colors.orange : Colors.grey, width: 2),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          if (esTorn) const BoxShadow(color: Colors.orangeAccent, blurRadius: 8, spreadRadius: 1)
+        ]
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(p.nom, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Image.network(p.imatgeUrl, height: 60, fit: BoxFit.cover),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Text("PS: ", style: TextStyle(fontWeight: FontWeight.bold)),
+              Expanded(
+                child: LinearProgressIndicator(
+                  value: p.ps / p.psMax,
+                  color: p.ps > (p.psMax * 0.3) ? Colors.green : Colors.red,
+                  backgroundColor: Colors.grey[300],
+                  minHeight: 12,
+                ),
+              ),
+              Text(" ${p.ps}/${p.psMax}"),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Text("PP: ", style: TextStyle(fontWeight: FontWeight.bold)),
+              Expanded(
+                child: LinearProgressIndicator(
+                  value: p.pp / p.ppMax,
+                  color: Colors.blue,
+                  backgroundColor: Colors.grey[300],
+                  minHeight: 12,
+                ),
+              ),
+              Text(" ${p.pp}/${p.ppMax}"),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -67,60 +158,67 @@ class _PantallaBatallaState extends State<PantallaBatalla> {
     Pokemon atacantActual = tornJugador1 ? pokemon1 : pokemon2;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Batalla Pokémon'),
-        automaticallyImplyLeading: false, 
-      ),
+      appBar: AppBar(title: const Text('Batalla Pokémon'), automaticallyImplyLeading: false),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(8.0),
         child: Column(
           children: [
-            // Dades del Pokémon 2 (A dalt)
-            Card(
-              color: tornJugador1 ? Colors.grey[200] : Colors.orange[100],
-              child: ListTile(
-                title: Text(pokemon2.nom, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('PS: ${pokemon2.ps} / 120  |  PP: ${pokemon2.pp} / 30'),
+            _buildPokemonCard(pokemon2, !tornJugador1),
+            
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ListView.builder(
+                  itemCount: historial.length > 5 ? 5 : historial.length,
+                  itemBuilder: (context, index) => Text(
+                    historial[index],
+                    style: TextStyle(color: index == 0 ? Colors.white : Colors.grey, fontSize: 14),
+                  ),
+                ),
               ),
             ),
-            const Spacer(),
 
-            // Indicador de Torn
-            Text(
-              tornJugador1 ? "Torn del Jugador 1" : "Torn del Jugador 2",
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blue),
-            ),
-            const SizedBox(height: 20),
+            Text(tornJugador1 ? "Torn de P1" : "Torn de P2", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+            const SizedBox(height: 10),
 
-            // Botons d'Atac
-            ElevatedButton(
-              onPressed: atacantActual.potAtacar(5) ? () => realitzarAtac(5, 10, 15) : null,
-              child: const Text('Atac Ràpid (5 PP) - Dany: 10-15'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: atacantActual.potAtacar(5) ? () => executarAccio(nomAtac: "A. Ràpid", costPP: 5, danyMin: 10, danyMax: 15) : null,
+                  child: const Text('Ràpid (5PP)'),
+                ),
+                ElevatedButton(
+                  onPressed: atacantActual.potAtacar(10) ? () => executarAccio(nomAtac: "A. Normal", costPP: 10, danyMin: 20, danyMax: 25) : null,
+                  child: const Text('Normal (10PP)'),
+                ),
+                ElevatedButton(
+                  onPressed: atacantActual.potAtacar(20) ? () => executarAccio(nomAtac: "A. Fort", costPP: 20, danyMin: 35, danyMax: 45) : null,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                  child: const Text('Fort (20PP)', style: TextStyle(color: Colors.white)),
+                ),
+                ElevatedButton(
+                  onPressed: atacantActual.potAtacar(15) ? () => executarAccio(esCura: true, costPP: 15) : null,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  child: const Text('Curar (15PP)', style: TextStyle(color: Colors.white)),
+                ),
+                ElevatedButton(
+                  onPressed: atacantActual.pp < atacantActual.ppMax ? () => executarAccio(esDescans: true) : null,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+                  child: const Text('Descansar (+15 PP)', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+                ),
+              ],
             ),
             const SizedBox(height: 10),
             
-            ElevatedButton(
-              onPressed: atacantActual.potAtacar(10) ? () => realitzarAtac(10, 20, 25) : null,
-              child: const Text('Atac Normal (10 PP) - Dany: 20-25'),
-            ),
-            const SizedBox(height: 10),
-
-            ElevatedButton(
-              onPressed: atacantActual.potAtacar(20) ? () => realitzarAtac(20, 35, 45) : null,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-              child: const Text('Atac Fort (20 PP) - Dany: 35-45', style: TextStyle(color: Colors.white)),
-            ),
-
-            const Spacer(),
-            
-            // Dades del Pokémon 1 (A baix)
-            Card(
-              color: tornJugador1 ? Colors.yellow[100] : Colors.grey[200],
-              child: ListTile(
-                title: Text(pokemon1.nom, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('PS: ${pokemon1.ps} / 120  |  PP: ${pokemon1.pp} / 30'),
-              ),
-            ),
+            _buildPokemonCard(pokemon1, tornJugador1),
           ],
         ),
       ),

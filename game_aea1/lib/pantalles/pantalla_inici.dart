@@ -31,7 +31,7 @@ class PantallaInici extends StatelessWidget {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                SystemNavigator.pop(); // Tanca l'aplicació
+                SystemNavigator.pop();
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               child: const Text('Sortir', style: TextStyle(color: Colors.white)),
